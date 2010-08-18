@@ -1,0 +1,31 @@
+OBJECT  TYPE="gbst_elm", NAME=x_new_activity UNIQUE_FIELD=title,rank
+ UNIQUE_RELATION=gbst_elm2gbst_lst
+  FIELDS
+   title ="Close Solution";
+   rank=92020;
+   state=0;
+  END_FIELDS
+  RELATIONS
+     TO_NAME=activity_name REL="gbst_elm2gbst_lst";
+  END_RELATIONS
+END_OBJECT  NAME=x_new_activity
+
+OBJECT  TYPE="gbst_elm", NAME=x_new_activity2 UNIQUE_FIELD=title,rank
+ UNIQUE_RELATION=gbst_elm2gbst_lst
+  FIELDS
+   title ="Reopen Solution";
+   rank=92021;
+   state=0;
+  END_FIELDS
+  RELATIONS
+     TO_NAME=activity_name REL="gbst_elm2gbst_lst";
+  END_RELATIONS
+END_OBJECT  NAME=x_new_activity2
+
+REFERENCE  TYPE="gbst_lst", NAME=activity_name UNIQUE_FIELD=title
+  FIELDS
+   title ="Activity Name";
+  END_FIELDS
+  RELATIONS
+  END_RELATIONS
+END_REFERENCE  NAME=activity_name

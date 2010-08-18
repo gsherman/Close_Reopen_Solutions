@@ -1,0 +1,12 @@
+APIs for closing and re-opening a Solution.
+Provided in ClearBasic and in JavaScript (using the Dovetail SDK via COM).
+
+Includes 2 new activity codes: Close Solution and Reopen Solution
+These should be imported into your database using dataex, diet, or UI Editor
+
+Includes example code for form 321 (Solution form) for the Clarify Classic Client.
+This shows how to use these APIs, including calling them from new buttons, as well as proper enabling of the form.
+
+TODO: 
+Create time_bombs for these events
+		

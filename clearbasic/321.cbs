@@ -1,0 +1,199 @@
+Option Explicit
+
+'Baseline Global Functions
+Declare Function DefWipOBJID() As Long
+Declare Function GetGbstElmObjid( vl, nme As String, fld_name As String ) As Long
+ 
+ 
+Function ReopenSolution(id_number, x_status) As Integer
+	Dim br As New Bulkretrieve
+	Dim bs As New BulkSave
+	Dim lor As List
+	Dim recSolution As Record
+	Dim recCondition As Record
+	
+	br.SimpleQuery 0, "probdesc"
+	br.AppendFilter 0, "id_number", cbEqual, id_number
+	br.TraverseFromParent 1, "probdesc2condition", 0
+	br.RetrieveRecords										
+	
+	Set lor = br.GetRecordList(0)
+	Set recSolution = lor.ItemByIndex(0)
+	recSolution.SetField "modify_stmp", App.CurrentDate
+	recSolution.SetField "x_status", x_status 
+	
+	Set lor = br.GetRecordList(1)
+	Set recCondition = lor.ItemByIndex(0)
+	recCondition.SetField "condition", 2
+	recCondition.SetField "title", "Open"  
+	recCondition.SetField "wipbin_time", App.CurrentDate
+	
+	bs.UpdateRecord recSolution
+	bs.UpdateRecord recCondition
+	
+	bs.RelateRecordsToId recSolution, "wipbin", DefWipOBJID(), "probdesc_wip2wipbin"
+	bs.RelateRecordsToId recSolution, "user", App.UserObjid, "probdesc_owner2user"
+	
+  Dim recActEntry As New Record
+  recActEntry.RecordType = "act_entry"
+  recActEntry.SetField "act_code", 92021
+  recActEntry.SetField "entry_time", App.CurrentDate
+  recActEntry.SetField "addnl_info", "Status = " + x_status
+  bs.InsertRecord recActEntry
+  bs.RelateRecordsToID recActEntry, "gbst_elm", GetGbstElmOBJID(92021, "Activity Name", "rank"), "entry_name2gbst_elm"
+  bs.RelateRecords recActEntry, recSolution, "act_entry2probdesc"
+  bs.RelateRecordsToId recActEntry, "user", App.UserObjid, "act_entry2user"
+
+	bs.Save
+	ReopenSolution = 0
+End Function
+
+
+Function CloseSolution(id_number, x_status) As Integer
+	Dim bs As New BulkSave
+	Dim br As New Bulkretrieve
+	Dim lor As List
+	Dim recSolution As Record
+	Dim recCondition As Record
+	
+	br.SimpleQuery 0, "probdesc"
+	br.AppendFilter 0, "id_number", cbEqual, id_number
+	br.TraverseFromParent 1, "probdesc2condition", 0
+	br.TraverseFromParent 2, "probdesc_q2queue", 0
+	br.TraverseFromParent 3, "probdesc_wip2wipbin", 0
+	br.RetrieveRecords										
+	
+	Set lor = br.GetRecordList(0)
+	Set recSolution = lor.ItemByIndex(0)
+	recSolution.SetField "modify_stmp", App.CurrentDate
+	recSolution.SetField "x_status", x_status 
+	
+	Set lor = br.GetRecordList(1)
+	Set recCondition = lor.ItemByIndex(0)
+	recCondition.SetField "condition", 4
+	recCondition.SetField "title", "Closed"  
+	
+	bs.UpdateRecord recSolution
+	bs.UpdateRecord recCondition
+	
+	Set lor = br.GetRecordList(2)
+	If lor.Count > 0 Then
+		Dim recQueue As Record
+		Set recQueue = lor.ItemByIndex(0)	
+		bs.UnrelateRecords recSolution, recQueue, "probdesc_q2queue"
+	End If
+	
+	Set lor = br.GetRecordList(3)
+	If lor.Count > 0 Then
+		Dim recWipbin As Record
+		Set recWipbin = lor.ItemByIndex(0)	
+		bs.UnrelateRecords recSolution, recWipbin, "probdesc_wip2wipbin"
+	End If
+
+  Dim recActEntry As New Record
+  recActEntry.RecordType = "act_entry"
+  recActEntry.SetField "act_code", 92020
+  recActEntry.SetField "entry_time", App.CurrentDate
+  recActEntry.SetField "addnl_info", "Status = " + x_status
+  bs.InsertRecord recActEntry
+  bs.RelateRecordsToID recActEntry, "gbst_elm", GetGbstElmOBJID(92020, "Activity Name", "rank"), "entry_name2gbst_elm"
+  bs.RelateRecords recActEntry, recSolution, "act_entry2probdesc"
+  bs.RelateRecordsToId recActEntry, "user", App.UserObjid, "act_entry2user"
+
+	bs.Save
+	CloseSolution = 0
+End Function
+
+
+Sub RefreshCobjs
+	Dim recSolution As Record
+	Dim recCondition As Record
+	Set recSolution = cobj_finale_obj.Contents
+	Dim id As String
+	id = recSolution.GetField("id_number")
+	
+	Dim br As New Bulkretrieve
+	br.SimpleQuery 0, "probdesc"
+	br.AppendFilter 0, "id_number", cbEqual, id
+	br.TraverseFromParent 1, "probdesc2condition", 0
+	br.RetrieveRecords										
+	
+	Dim lor As List
+	Set lor = br.GetRecordList(0)
+	Set recSolution = lor.ItemByIndex(0)
+	cobj_finale_obj.Fill recSolution
+	
+	Set lor = br.GetRecordList(1)
+	Set recCondition = lor.ItemByIndex(0)
+	cobj_sts_obj.Fill recCondition
+
+End Sub
+
+Sub ProperEnableControls
+	Dim conditionValue As Integer
+	Dim recCondition As Record
+	Me.ForceRedraw
+
+	Set recCondition = cobj_sts_obj.Contents
+	conditionValue = recCondition.GetField("condition")
+	If conditionValue = 4 Then
+		Me.readOnly = True
+		Me.Caption = "[READ] " + Me.Caption
+		ATTACHS.Enabled = False
+		New_WORK.Enabled = False
+		COMMIT.Enabled = False
+		LINK_PATH.Enabled = False
+		LINK_DIRECT.Enabled=False
+		btn_close.Enabled=False
+		btn_reopen.Enabled = True
+	Else
+		btn_reopen.Enabled = False
+		btn_close.Enabled=True	
+	End If
+	
+	If recCondition.IsNew = True Then
+	  btn_close.Enabled=False
+	End If
+
+End Sub
+
+Function GetSolutionId()
+  Dim recSolution As Record
+  Set recSolution = cobj_finale_obj.Contents
+  GetSolutionId = recSolution.GetField("id_number")
+End Function
+
+'Custom Close Button 
+Sub btn_close_click
+  Dim result As Integer
+  result = CloseSolution(GetSolutionId(), "Retired")
+  RefreshCobjs
+  Call ProperEnableControls
+End Sub
+
+'Custom Reopen Button 
+Sub btn_reopen_click()
+  Dim result As Integer
+  result = ReopenSolution(GetSolutionId(), "Approved")
+  RefreshCobjs
+  Me.NotifyByKey Me.Key, 513, ""
+  Me.NotifyByKey Me.Key, 516, ""
+  Me.NotifyByKey Me.Key, 517, ""   
+  Call ProperEnableControls
+End Sub
+ 
+Sub Form_Load()
+	Me.DoDefault
+	Call ProperEnableControls
+End Sub
+
+Public Sub Message(ByVal num As Long, ByVal info As String)
+  'MsgBox "solution form reveived message " & cstr(num) & " with info of: " & info
+
+  Select Case num
+    Case cbCloseMessage
+      Me.Close cbCloseChildren
+    Case Else
+      Me.DoDefault
+  End Select
+End Sub
